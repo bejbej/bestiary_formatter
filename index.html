@@ -1,0 +1,219 @@
+<style>
+textarea {
+	display: block;
+	width: 50%;
+	height: 100%;
+	float: left;
+	resize: none;
+}
+</style>
+<body>
+<div>
+<textarea id=input placeholder=input></textarea>
+<textarea id=output placeholder=output></textarea>
+</div>
+</body>
+
+<script>
+document.getElementById("input").addEventListener("change", event => {
+	try {
+		let output = parse(event.target.value);
+		document.getElementById("output").value = output;
+	}
+	catch (error) {
+		 document.getElementById("output").value = error;
+		 throw error;
+	}
+});
+
+var parse = input => {
+	let textIterator = new TextIterator(input);
+	let builder = new Builder();
+	
+	builder.addLine("***");
+	builder.addLine(getName(textIterator));
+	builder.addLine(getSizeAlignment(textIterator));
+	builder.addLine("***");
+	builder.addLine(getKeyValue(textIterator));
+	builder.addLine(getKeyValue(textIterator));
+	builder.addLine(getKeyValue(textIterator));
+	builder.addLine("***");
+	
+	textIterator.nextLine();
+	
+	builder.addLine("|STR|DEX|CON|INT|WIS|CHA|");
+	builder.addLine("|:---:|:---:|:---:|:---:|:---:|:---:|");
+	builder.addLine(getStats(textIterator));
+	builder.addLine("***");
+	
+	while (!textIterator.peekLine().startsWith("Challenge")) {
+		builder.addLine(getKeyValue(textIterator));
+	}
+	builder.addLine(getKeyValue(textIterator));
+	builder.addLine("***");
+	
+	if (!textIterator.peekLine().startsWith("Actions")) {
+		while (!textIterator.peekLine().startsWith("Actions")) {
+			builder.addLine(getParagraph(textIterator));
+			builder.addLine("");
+		}
+		builder.addLine("***");
+	}
+	
+	textIterator.nextLine();
+	builder.addLine("### Actions");
+	
+	while (true) {
+		let nextLine = textIterator.peekLine();
+		if (!textIterator.hasNext() || nextLine.startsWith("Source") || nextLine.startsWith("Variant")) {
+			break;
+		}
+		
+		builder.addLine(getAction(textIterator));
+		builder.addLine("");
+	}
+	
+	while (true) {
+		if (!textIterator.hasNext() || textIterator.peekLine().startsWith("Source")) {
+			break;
+		}
+		
+		builder.addLine(getVariant(textIterator));
+		builder.addLine("");
+	}
+	
+	return builder.toString().trim();
+}
+
+var getName = textIterator => {
+	let line = textIterator.nextLine();
+	let result = /(.*)\s[^\s]+/.exec(line);
+	let name = result[1];
+	return `**${name}**`;
+}
+
+var getSizeAlignment = textIterator => {
+	let line = textIterator.nextLine();
+	return `*${line}*`;
+}
+
+var getKeyValue = textIterator => {
+	let line = textIterator.nextLine();
+	let keys = [
+		"Armor Class",
+		"Hit Points",
+		"Speed",
+		"Skills",
+		"Senses",
+		"Languages",
+		"Challenge",
+		"Damage Immunities",
+		"Condition Immunities",
+		"Damage Resistances",
+		"Saving Throws"
+	];
+	
+	let key = keys.find(key => line.indexOf(key) > -1);
+	
+	if (key === undefined) {
+		return null;
+	}
+	
+	let regex = new RegExp(`${key} (.*)`);
+	let result = regex.exec(line);
+	let value = result[1];
+	return `- **${key}** ${value}`;
+}
+
+var getStats = textIterator => {
+	let line = textIterator.nextLine();
+	let stats = line.split(")");
+	stats.pop();
+	stats = stats.map(x => x.trim() + ")");
+	return "|" + stats.join("|") + "|";
+}
+
+var getParagraph = textIterator => {
+	let line = textIterator.nextLine();
+	let result = /([^\.]+\.)(.*)/.exec(line);
+	let name = result[1];
+	let description = result[2];
+	let builder = new Builder();
+	builder.add(`***${name}***${description}`);
+	
+	if (line.endsWith(":")) {
+		builder.add("  \n");
+		while (/^([^:\n]+:)\s.*\n/s.test(textIterator.toString())) {
+			builder.add(`${textIterator.nextLine()}  \n`);
+			while (textIterator.peekLine() === "") {
+				textIterator.nextLine();
+			}
+		}
+	}
+	
+	return builder.toString();
+}
+
+var getAction = textIterator => {
+	let line = textIterator.nextLine();
+	let result = /([^\.]+\.)\s*((?:[^:]+:)?)\s*(.*)/.exec(line);
+	let name = result[1];
+	let type = result[2];
+	let description = result[3];
+	let builder = new Builder();
+	builder.add(`***${name}*** `);
+	if (type.length > 0) {
+		builder.add(`*${type}* `);
+	}
+	builder.add(description);
+	return builder.toString();
+}
+
+var getVariant = textIterator => {
+	let name = textIterator.nextLine();
+	let description = textIterator.nextLine();
+	textIterator.nextLine();
+	return `**${name}**  \n${description}`;
+}
+
+class Builder {
+	constructor() {
+		this._string = "";
+	}
+	
+	add(string) {
+		this._string += string;
+	}
+	
+	addLine(line) {
+		this._string += line + "\n";
+	}
+	
+	toString() {
+		return this._string;
+	}
+}
+
+class TextIterator {
+	constructor(string) {
+		this._string = string || "";
+	}
+	peekLine() {
+		let result = /^([^\n]*\n)/.exec(this._string);
+		let line = result === null ? this._string : result[1];
+		return line.trim();
+	}
+	nextLine() {
+		let result = /^([^\n]*\n)(.*)$/ms.exec(this._string);
+		let line = result === null ? this._string : result[1];
+		this._string = result === null ? "" : result[2];
+		return line.trim();
+	}
+	hasNext() {
+		return this._string.length > 0;
+	}
+	toString() {
+		return this._string;
+	}
+}
+</script>
