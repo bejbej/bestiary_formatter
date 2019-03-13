@@ -31,37 +31,37 @@ var parse = input => {
 	let builder = new Builder();
 	
 	builder.addLine("***");
-	builder.addLine(getName(textIterator));
-	builder.addLine(getSizeAlignment(textIterator));
-	builder.addLine("***");
-	builder.addLine(getKeyValue(textIterator));
-	builder.addLine(getKeyValue(textIterator));
-	builder.addLine(getKeyValue(textIterator));
-	builder.addLine("***");
+	builder.addLine("> " + getName(textIterator));
+	builder.addLine("> " + getSizeAlignment(textIterator));
+	builder.addLine(">\n> ***\n>");
+	builder.addLine("> " + getKeyValue(textIterator));
+	builder.addLine("> " + getKeyValue(textIterator));
+	builder.addLine("> " + getKeyValue(textIterator));
+	builder.addLine(">\n> ***\n>");
 	
 	textIterator.nextLine();
 	
-	builder.addLine("|STR|DEX|CON|INT|WIS|CHA|");
-	builder.addLine("|:---:|:---:|:---:|:---:|:---:|:---:|");
-	builder.addLine(getStats(textIterator));
-	builder.addLine("***");
+	builder.addLine("> |STR|DEX|CON|INT|WIS|CHA|");
+	builder.addLine("> |:---:|:---:|:---:|:---:|:---:|:---:|");
+	builder.addLine("> " + getStats(textIterator));
+	builder.addLine(">\n> ***\n>");
 	
 	while (!textIterator.peekLine().startsWith("Challenge")) {
-		builder.addLine(getKeyValue(textIterator));
+		builder.addLine("> " + getKeyValue(textIterator));
 	}
-	builder.addLine(getKeyValue(textIterator));
-	builder.addLine("***");
+	builder.addLine("> " + getKeyValue(textIterator));
+	builder.addLine(">\n> ***\n>");
 	
 	if (!textIterator.peekLine().startsWith("Actions")) {
 		while (!textIterator.peekLine().startsWith("Actions")) {
-			builder.addLine(getParagraph(textIterator));
-			builder.addLine("");
+			getParagraphs(textIterator).forEach(paragraph => builder.addLine("> " + paragraph));
+			builder.addLine(">");
 		}
-		builder.addLine("***");
+		builder.addLine(">\n> ***\n>");
 	}
 	
 	textIterator.nextLine();
-	builder.addLine("### Actions");
+	builder.addLine("> ### Actions");
 	
 	while (true) {
 		let nextLine = textIterator.peekLine();
@@ -69,8 +69,8 @@ var parse = input => {
 			break;
 		}
 		
-		builder.addLine(getAction(textIterator));
-		builder.addLine("");
+		builder.addLine("> " + getAction(textIterator));
+		builder.addLine(">");
 	}
 	
 	while (true) {
@@ -78,18 +78,19 @@ var parse = input => {
 			break;
 		}
 		
-		builder.addLine(getVariant(textIterator));
-		builder.addLine("");
+		builder.addLine("> " + getVariant(textIterator));
+		builder.addLine(">");
 	}
 	
-	return builder.toString().trim();
+	let result = /(.*)\n>/s.exec(builder.toString());
+	return result[1];
 }
 
 var getName = textIterator => {
 	let line = textIterator.nextLine();
 	let result = /(.*)\s[^\s]+/.exec(line);
 	let name = result[1];
-	return `**${name}**`;
+	return `## ${name}`;
 }
 
 var getSizeAlignment = textIterator => {
@@ -133,25 +134,25 @@ var getStats = textIterator => {
 	return "|" + stats.join("|") + "|";
 }
 
-var getParagraph = textIterator => {
+var getParagraphs = textIterator => {
 	let line = textIterator.nextLine();
 	let result = /([^\.]+\.)(.*)/.exec(line);
 	let name = result[1];
 	let description = result[2];
-	let builder = new Builder();
-	builder.add(`***${name}***${description}`);
+	let paragraphs = [];
+	paragraphs.push(`***${name}***${description}`);
 	
 	if (line.endsWith(":")) {
-		builder.add("  \n");
+		paragraphs[0] += "  ";
 		while (/^([^:\n]+:)\s.*\n/s.test(textIterator.toString())) {
-			builder.add(`${textIterator.nextLine()}  \n`);
+			paragraphs.push(`${textIterator.nextLine()}  `);
 			while (textIterator.peekLine() === "") {
 				textIterator.nextLine();
 			}
 		}
 	}
 	
-	return builder.toString();
+	return paragraphs;
 }
 
 var getAction = textIterator => {
