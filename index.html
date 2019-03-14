@@ -50,36 +50,69 @@ var parse = input => {
 		builder.addLine("> " + getKeyValue(textIterator));
 	}
 	builder.addLine("> " + getKeyValue(textIterator));
-	builder.addLine(">\n> ***\n>");
-	
-	if (!textIterator.peekLine().startsWith("Actions")) {
-		while (!textIterator.peekLine().startsWith("Actions")) {
+
+	if (!isSectionStart(textIterator)) {
+		builder.addLine(">");
+		builder.addLine("> ***");
+		builder.addLine(">");
+		while (!isSectionStart(textIterator)) {
 			getParagraphs(textIterator).forEach(paragraph => builder.addLine("> " + paragraph));
 			builder.addLine(">");
 		}
-		builder.addLine(">\n> ***\n>");
 	}
 	
-	textIterator.nextLine();
-	builder.addLine("> ### Actions");
-	
-	while (true) {
-		let nextLine = textIterator.peekLine();
-		if (!textIterator.hasNext() || nextLine.startsWith("Source") || nextLine.startsWith("Variant")) {
-			break;
-		}
-		
-		builder.addLine("> " + getAction(textIterator));
+	if (isSectionStart(textIterator) && textIterator.peekLine().startsWith("Actions")) {
+		textIterator.nextLine();
 		builder.addLine(">");
+		builder.addLine("> ***");
+		builder.addLine(">");
+		builder.addLine("> ### Actions");
+		while (true) {
+			if (isSectionStart(textIterator)) {
+				break;
+			}
+			
+			builder.addLine("> " + getAction(textIterator));
+			builder.addLine(">");
+		}
 	}
 	
-	while (true) {
-		if (!textIterator.hasNext() || textIterator.peekLine().startsWith("Source")) {
-			break;
+	if (isSectionStart(textIterator) && textIterator.peekLine().startsWith("Varient")) {
+		while (true) {
+			if (isSectionStart(textIterator)) {
+				break;
+			}
+			
+			builder.addLine("> " + getVariant(textIterator));
+			builder.addLine(">");
 		}
-		
-		builder.addLine("> " + getVariant(textIterator));
+	}
+	
+	if (isSectionStart(textIterator) && textIterator.peekLine().startsWith("Reactions")) {
+		textIterator.nextLine();
 		builder.addLine(">");
+		builder.addLine("> ***");
+		builder.addLine(">");
+		builder.addLine("> ### Reactions");
+		while (true) {
+			if (isSectionStart(textIterator)) {
+				break;
+			}
+			
+			getParagraphs(textIterator).forEach(paragraph => builder.addLine("> " + paragraph));
+			builder.addLine(">");
+		}
+	}
+	
+	if (isSectionStart(textIterator) && textIterator.peekLine().startsWith("Varient")) {
+		while (true) {
+			if (isSectionStart(textIterator)) {
+				break;
+			}
+			
+			builder.addLine("> " + getVariant(textIterator));
+			builder.addLine(">");
+		}
 	}
 	
 	let result = /(.*)\n>/s.exec(builder.toString());
@@ -146,7 +179,7 @@ var getParagraphs = textIterator => {
 		paragraphs[0] += "  ";
 		while (/^([^:\n]+:)\s.*\n/s.test(textIterator.toString())) {
 			paragraphs.push(`${textIterator.nextLine()}  `);
-			while (textIterator.peekLine() === "") {
+			while (textIterator.hasNext() && textIterator.peekLine() === "") {
 				textIterator.nextLine();
 			}
 		}
@@ -175,6 +208,14 @@ var getVariant = textIterator => {
 	let description = textIterator.nextLine();
 	textIterator.nextLine();
 	return `**${name}**  \n${description}`;
+}
+
+var isSectionStart = textIterator => {
+	if (!textIterator.hasNext()) {
+		return true;
+	}
+	let line = textIterator.peekLine();
+	return line.startsWith("Actions") || line.startsWith("Reactions") || line.startsWith("Variant") || line.startsWith("Source");
 }
 
 class Builder {
